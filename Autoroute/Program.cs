@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -63,15 +64,23 @@ namespace Autoroute
 
         static void Main(string[] args)
         {
+
+            NetworkInterface[] adapters = NetworkInterface.GetAllNetworkInterfaces();
+            var adapter = adapters.Single(a => a.Description == "Intel(R) Wi-Fi 6E AX211 160MHz");
+
+            var ipProperties = adapter.GetIPProperties();
+            var ipv4Properties = ipProperties.GetIPv4Properties();
+            var index = ipv4Properties.Index;
+
             bool running = true;
             var task = Task.Run(() =>
             {
-                FixRoutes();
+                FixRoutes(index);
                 while (running)
                 {
                     NotifyRouteChange(default(uint), default(uint));
                     Console.WriteLine("Routes Changed");
-                    FixRoutes();
+                    FixRoutes(index);
                 }
             });
 
@@ -81,7 +90,7 @@ namespace Autoroute
 
         }
 
-        private static void FixRoutes()
+        private static void FixRoutes(int index)
         {
             //ping - n 100 localhost
             //    route delete 192.168.1.0
@@ -96,7 +105,7 @@ namespace Autoroute
                 dwForwardType = (int)MIB_IPFORWARD_TYPE.MIB_IPROUTE_TYPE_INDIRECT,
                 dwForwardProto = (int)MIB_IPFORWARD_PROTOCOL.MIB_IPPROTO_NETMGMT,
                 dwForwardAge = 0,
-                dwForwardIfIndex = 6
+                dwForwardIfIndex = index,
             };
             IntPtr pnt = Marshal.AllocHGlobal(Marshal.SizeOf(route));
             Marshal.StructureToPtr(route, pnt, false);
